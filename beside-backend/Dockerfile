@@ -7,8 +7,8 @@ WORKDIR /app
 # 複製 package 文件
 COPY package*.json ./
 
-# 安裝依賴
-RUN npm ci --only=production
+# 安裝所有依賴（包括 devDependencies，因為需要 TypeScript 來構建）
+RUN npm install
 
 # 複製源代碼
 COPY . .
@@ -18,6 +18,9 @@ RUN npm run build
 
 # 暴露端口（Railway 會自動設置）
 EXPOSE 3001
+
+# 設置環境變數
+ENV NODE_ENV=production
 
 # 啟動應用
 CMD ["npm", "start"]
