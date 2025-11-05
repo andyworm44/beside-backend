@@ -21,4 +21,7 @@ router.get('/my', signalController.getMySignals);
 // GET /api/v1/signals/responses - 獲取收到的回應
 router.get('/responses', signalController.getMyResponses);
 
+// GET /api/v1/signals/statistics - 獲取統計數據
+router.get('/statistics', signalController.getStatistics);
+
 export default router;

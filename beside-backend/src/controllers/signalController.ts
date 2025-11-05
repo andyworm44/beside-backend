@@ -1,6 +1,22 @@
 import { Request, Response } from 'express';
-import { supabase } from '../utils/supabase';
+import { supabase, supabaseAdmin } from '../utils/supabase';
 import { ApiResponse, LonelySignal, CreateSignalRequest, RespondToSignalRequest } from '../types';
+
+// 從生日（YYYY-MM-DD 格式）計算年齡
+const calculateAge = (birthday: string): string => {
+  const birthDate = new Date(birthday);
+  const today = new Date();
+  
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  // 如果還沒到生日，年齡減1
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return `${age}歲`;
+};
 
 export const signalController = {
   // 獲取附近的寂寞信號
@@ -73,30 +89,38 @@ export const signalController = {
         });
       }
 
-      const { latitude, longitude } = req.body as CreateSignalRequest;
+      // 位置資訊是可選的，如果沒有提供則使用 null
+      const body = req.body || {};
+      const { latitude, longitude } = body as CreateSignalRequest;
+      
+      console.log('📡 Create signal request body:', body);
 
-      // 獲取用戶資料
-      const { data: userData, error: userError } = await supabase
+      // 獲取用戶資料（使用 admin client 繞過 RLS）
+      const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (userError) {
+      if (userError || !userData) {
+        console.error('❌ User not found in database:', user.id, userError);
         return res.status(404).json({
           success: false,
           error: 'User not found'
         });
       }
 
-      // 創建寂寞信號
-      const { data: signal, error: signalError } = await supabase
+      // 計算年齡
+      const age = calculateAge(userData.birthday);
+
+      // 創建寂寞信號（使用 admin client 繞過 RLS）
+      const { data: signal, error: signalError } = await supabaseAdmin
         .from('lonely_signals')
         .insert({
           user_id: user.id,
           user_name: userData.name,
           user_gender: userData.gender,
-          user_age: userData.birthday, // 這裡需要計算年齡
+          user_age: age, // 顯示計算出的年紀（如：25歲）
           latitude,
           longitude,
           is_active: true
@@ -148,8 +172,8 @@ export const signalController = {
         });
       }
 
-      // 取消信號
-      const { error } = await supabase
+      // 取消信號（使用 admin client 繞過 RLS）
+      const { error } = await supabaseAdmin
         .from('lonely_signals')
         .update({ is_active: false })
         .eq('id', id)
@@ -199,29 +223,33 @@ export const signalController = {
         });
       }
 
-      // 獲取用戶資料
-      const { data: userData, error: userError } = await supabase
+      // 獲取用戶資料（使用 admin client 繞過 RLS）
+      const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (userError) {
+      if (userError || !userData) {
+        console.error('❌ User not found in database:', user.id, userError);
         return res.status(404).json({
           success: false,
           error: 'User not found'
         });
       }
 
-      // 創建回應
-      const { data: response, error: responseError } = await supabase
+      // 計算年齡
+      const age = calculateAge(userData.birthday);
+
+      // 創建回應（使用 admin client 繞過 RLS）
+      const { data: response, error: responseError } = await supabaseAdmin
         .from('signal_responses')
         .insert({
           signal_id: id,
           responder_id: user.id,
           responder_name: userData.name,
           responder_gender: userData.gender,
-          responder_age: userData.birthday,
+          responder_age: age, // 顯示計算出的年紀（如：25歲）
           message
         })
         .select()
@@ -234,11 +262,17 @@ export const signalController = {
         });
       }
 
-      // 取消原信號（因為已經有人回應了）
-      await supabase
+      // 取消原信號（因為已經有人回應了，使用 admin client 繞過 RLS）
+      const { error: updateError } = await supabaseAdmin
         .from('lonely_signals')
         .update({ is_active: false })
         .eq('id', id);
+      
+      if (updateError) {
+        console.error('❌ 更新信號狀態失敗:', updateError);
+      } else {
+        console.log('✅ 信號已標記為非活躍:', id);
+      }
 
       res.status(201).json({
         success: true,
@@ -303,6 +337,83 @@ export const signalController = {
     }
   },
 
+  // 獲取統計數據
+  getStatistics: async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          error: 'No token provided'
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+      if (authError || !user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid token'
+        });
+      }
+
+      // 獲取用戶的所有信號（使用 admin client 繞過 RLS）
+      const { data: signals, error } = await supabaseAdmin
+        .from('lonely_signals')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+
+      // 獲取用戶收到的回應數量
+      const { data: mySignalsForResponses } = await supabaseAdmin
+        .from('lonely_signals')
+        .select('id')
+        .eq('user_id', user.id);
+
+      const signalIds = mySignalsForResponses?.map(s => s.id) || [];
+      let responseCount = 0;
+      if (signalIds.length > 0) {
+        const { data: responses } = await supabaseAdmin
+          .from('signal_responses')
+          .select('id')
+          .in('signal_id', signalIds);
+        responseCount = responses?.length || 0;
+      }
+
+      // 獲取用戶回應他人的次數
+      const { data: myResponses } = await supabaseAdmin
+        .from('signal_responses')
+        .select('id')
+        .eq('responder_id', user.id);
+      const accompanyCount = myResponses?.length || 0;
+
+      res.json({
+        success: true,
+        data: {
+          signals: signals || [],
+          totalSignalsSent: signals?.length || 0,
+          totalResponsesReceived: responseCount,
+          totalAccompanied: accompanyCount,
+        }
+      });
+
+    } catch (error) {
+      console.error('Get statistics error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  },
+
   // 獲取收到的回應
   getMyResponses: async (req: Request, res: Response) => {
     try {
@@ -324,7 +435,31 @@ export const signalController = {
         });
       }
 
-      const { data: responses, error } = await supabase
+      // 使用 admin client 繞過 RLS，查詢所有回應我發出的訊號的回應
+      // 先獲取所有我發出的訊號 ID
+      const { data: mySignals, error: signalsError } = await supabaseAdmin
+        .from('lonely_signals')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (signalsError) {
+        return res.status(500).json({
+          success: false,
+          error: signalsError.message
+        });
+      }
+
+      const signalIds = mySignals?.map(s => s.id) || [];
+
+      if (signalIds.length === 0) {
+        return res.json({
+          success: true,
+          data: []
+        });
+      }
+
+      // 查詢所有回應這些訊號的回應，只返回最新的一個
+      const { data: responses, error } = await supabaseAdmin
         .from('signal_responses')
         .select(`
           *,
@@ -335,8 +470,9 @@ export const signalController = {
             user_age
           )
         `)
-        .eq('lonely_signals.user_id', user.id)
-        .order('created_at', { ascending: false });
+        .in('signal_id', signalIds)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (error) {
         return res.status(500).json({
