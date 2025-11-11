@@ -71,7 +71,7 @@ app.get('/test-supabase', async (req, res) => {
 // API Routes
 const API_PREFIX = '/api/v1';
 
-// 獲取附近的寂寞信號
+// 獲取附近的焦慮信號
 app.get(`${API_PREFIX}/signals/nearby`, async (req, res) => {
   try {
     const { latitude, longitude, radius = 5 } = req.query;
@@ -83,7 +83,7 @@ app.get(`${API_PREFIX}/signals/nearby`, async (req, res) => {
       });
     }
 
-    // 查詢寂寞信號
+    // 查詢焦慮信號
     const { data: signals, error } = await supabase
       .from('lonely_signals')
       .select(`
@@ -119,7 +119,7 @@ app.get(`${API_PREFIX}/signals/nearby`, async (req, res) => {
   }
 });
 
-// 發送寂寞信號
+// 發送焦慮信號
 app.post(`${API_PREFIX}/signals`, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
@@ -141,7 +141,7 @@ app.post(`${API_PREFIX}/signals`, async (req, res) => {
       });
     }
 
-    // 創建寂寞信號
+    // 創建焦慮信號
     const { data: signal, error: signalError } = await supabase
       .from('lonely_signals')
       .insert({
@@ -178,7 +178,7 @@ app.post(`${API_PREFIX}/signals`, async (req, res) => {
   }
 });
 
-// 回應寂寞信號
+// 回應焦慮信號
 app.post(`${API_PREFIX}/signals/:id/respond`, async (req, res) => {
   try {
     const { id } = req.params;

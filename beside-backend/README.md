@@ -1,6 +1,6 @@
 # Beside Backend
 
-寂寞陪伴 App 的後端服務，使用 Node.js + Express + Supabase + WebSocket 實現。
+焦慮陪伴 App 的後端服務，使用 Node.js + Express + Supabase + WebSocket 實現。
 
 ## 🚀 技術棧
 
@@ -65,7 +65,7 @@ CREATE TABLE users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 寂寞信號表
+-- 焦慮信號表
 CREATE TABLE lonely_signals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -127,7 +127,7 @@ npm start
 - `GET /api/v1/auth/me` - 獲取用戶資料
 - `PUT /api/v1/auth/profile` - 更新用戶資料
 
-### 寂寞信號 (Signals)
+### 焦慮信號 (Signals)
 - `GET /api/v1/signals/nearby` - 獲取附近信號
 - `POST /api/v1/signals` - 發送信號
 - `DELETE /api/v1/signals/:id` - 取消信號

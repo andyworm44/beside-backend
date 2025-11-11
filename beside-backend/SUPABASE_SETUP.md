@@ -66,7 +66,7 @@ CORS_ORIGIN=http://localhost:8081
 - 前往 **Table Editor**
 - 確認以下表已創建：
   - `users` - 用戶表
-  - `lonely_signals` - 寂寞信號表
+  - `lonely_signals` - 焦慮信號表
   - `signal_responses` - 信號回應表
   - `user_locations` - 用戶位置表
 
@@ -134,7 +134,7 @@ curl -X POST http://localhost:3001/api/v1/auth/register \
   }'
 ```
 
-### 2. 發送寂寞信號
+### 2. 發送焦慮信號
 ```bash
 curl -X POST http://localhost:3001/api/v1/signals \
   -H "Content-Type: application/json" \

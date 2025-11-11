@@ -4,7 +4,7 @@
 -- 清空信號回應表
 DELETE FROM signal_responses;
 
--- 清空寂寞信號表
+-- 清空焦慮信號表
 DELETE FROM lonely_signals;
 
 -- 清空用戶位置表
@@ -24,5 +24,7 @@ UNION ALL
 SELECT 'Signal responses cleared', COUNT(*) FROM signal_responses
 UNION ALL
 SELECT 'User locations cleared', COUNT(*) FROM user_locations;
+
+
 
 

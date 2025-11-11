@@ -92,7 +92,7 @@ export const setupSocket = (io: Server) => {
       }
     });
 
-    // 發送寂寞信號
+    // 發送焦慮信號
     socket.on('signal:send', async (data: { userId: string; location?: Location }) => {
       try {
         const { userId, location } = data;
@@ -109,7 +109,7 @@ export const setupSocket = (io: Server) => {
           return;
         }
 
-        // 創建寂寞信號
+        // 創建焦慮信號
         const { data: signal, error: signalError } = await supabase
           .from('lonely_signals')
           .insert({
@@ -149,7 +149,7 @@ export const setupSocket = (io: Server) => {
       }
     });
 
-    // 回應寂寞信號
+    // 回應焦慮信號
     socket.on('signal:respond', async (data: { signalId: string; responderId: string; message?: string }) => {
       try {
         const { signalId, responderId, message = '我陪你' } = data;

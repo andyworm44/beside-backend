@@ -141,3 +141,5 @@ https://你的-railway-url.up.railway.app/health
 1. 哪一步出錯了？
 2. 錯誤訊息是什麼？
 
+
+

@@ -1,5 +1,5 @@
 -- Beside App Database Schema
--- 寂寞陪伴 App 數據庫結構
+-- 焦慮陪伴 App 數據庫結構
 
 -- 啟用必要的擴展
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 寂寞信號表
+-- 焦慮信號表
 CREATE TABLE IF NOT EXISTS lonely_signals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -101,7 +101,7 @@ INSERT INTO users (id, name, gender, birthday, phone) VALUES
   ('550e8400-e29b-41d4-a716-446655440004', '小芳', 'female', '1996-11-30', '+886912345681')
 ON CONFLICT (id) DO NOTHING;
 
--- 插入一些測試的寂寞信號
+-- 插入一些測試的焦慮信號
 INSERT INTO lonely_signals (user_id, user_name, user_gender, user_age, latitude, longitude, is_active) VALUES
   ('550e8400-e29b-41d4-a716-446655440001', '小明', 'male', '25歲', 25.0330, 121.5654, true),
   ('550e8400-e29b-41d4-a716-446655440002', '小美', 'female', '22歲', 25.0340, 121.5664, true),
@@ -139,7 +139,7 @@ DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 CREATE POLICY "Users can insert own profile" ON users
   FOR INSERT WITH CHECK (auth.uid() = id);
 
--- 寂寞信號策略（如果不存在）
+-- 焦慮信號策略（如果不存在）
 DROP POLICY IF EXISTS "Anyone can view active signals" ON lonely_signals;
 CREATE POLICY "Anyone can view active signals" ON lonely_signals
   FOR SELECT USING (is_active = true);
@@ -176,7 +176,7 @@ DROP POLICY IF EXISTS "Users can update own location" ON user_locations;
 CREATE POLICY "Users can update own location" ON user_locations
   FOR ALL USING (auth.uid() = user_id);
 
--- 創建視圖：附近的寂寞信號
+-- 創建視圖：附近的焦慮信號
 CREATE OR REPLACE VIEW nearby_signals AS
 SELECT 
   ls.id,
@@ -211,8 +211,8 @@ JOIN lonely_signals ls ON sr.signal_id = ls.id
 WHERE ls.is_active = false;
 
 COMMENT ON TABLE users IS '用戶資料表';
-COMMENT ON TABLE lonely_signals IS '寂寞信號表';
+COMMENT ON TABLE lonely_signals IS '焦慮信號表';
 COMMENT ON TABLE signal_responses IS '信號回應表';
 COMMENT ON TABLE user_locations IS '用戶位置表';
-COMMENT ON VIEW nearby_signals IS '附近寂寞信號視圖';
+COMMENT ON VIEW nearby_signals IS '附近焦慮信號視圖';
 COMMENT ON VIEW user_responses IS '用戶收到回應視圖';

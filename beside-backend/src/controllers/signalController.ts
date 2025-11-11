@@ -19,7 +19,7 @@ const calculateAge = (birthday: string): string => {
 };
 
 export const signalController = {
-  // 獲取附近的寂寞信號
+  // 獲取附近的焦慮信號
   getNearbySignals: async (req: Request, res: Response) => {
     try {
       const { latitude, longitude, radius = 5 } = req.query; // 預設5公里範圍
@@ -68,7 +68,7 @@ export const signalController = {
     }
   },
 
-  // 發送寂寞信號
+  // 發送焦慮信號
   createSignal: async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
@@ -113,7 +113,7 @@ export const signalController = {
       // 計算年齡
       const age = calculateAge(userData.birthday);
 
-      // 創建寂寞信號（使用 admin client 繞過 RLS）
+      // 創建焦慮信號（使用 admin client 繞過 RLS）
       const { data: signal, error: signalError } = await supabaseAdmin
         .from('lonely_signals')
         .insert({
@@ -150,7 +150,7 @@ export const signalController = {
     }
   },
 
-  // 取消寂寞信號
+  // 取消焦慮信號
   cancelSignal: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -200,7 +200,7 @@ export const signalController = {
     }
   },
 
-  // 回應寂寞信號
+  // 回應焦慮信號
   respondToSignal: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
