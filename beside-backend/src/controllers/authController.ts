@@ -313,11 +313,12 @@ export const authController = {
         message: 'Profile updated successfully'
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update profile error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: 'Internal server error',
+        details: error.message // 暫時添加錯誤詳情以便調試
       });
     }
   }
