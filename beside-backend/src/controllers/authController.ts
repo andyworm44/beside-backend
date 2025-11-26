@@ -283,14 +283,19 @@ export const authController = {
 
       const { name, gender, birthday } = req.body;
 
-      const { data: userData, error: userError } = await supabase
+      // 建構更新物件，只包含有提供的欄位
+      const updates: any = {
+        updated_at: new Date().toISOString()
+      };
+      
+      if (name !== undefined) updates.name = name;
+      if (gender !== undefined) updates.gender = gender;
+      if (birthday !== undefined) updates.birthday = birthday;
+
+      // 使用 admin client 繞過 RLS
+      const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
-        .update({
-          name,
-          gender,
-          birthday,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', user.id)
         .select()
         .single();
