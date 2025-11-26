@@ -263,6 +263,9 @@ export const authController = {
   // 更新用戶資料
   updateProfile: async (req: Request, res: Response) => {
     try {
+      // console.log('📝 Update profile request:', req.body);
+      // console.log('📝 Auth header:', req.headers.authorization);
+      
       const token = req.headers.authorization?.replace('Bearer ', '');
       
       if (!token) {
@@ -281,7 +284,9 @@ export const authController = {
         });
       }
 
-      const { name, gender, birthday } = req.body;
+      // 安全地解構 req.body，如果 req.body 是 undefined，給一個空物件預設值
+      const body = req.body || {};
+      const { name, gender, birthday } = body;
 
       // 建構更新物件，只包含有提供的欄位
       const updates: any = {
