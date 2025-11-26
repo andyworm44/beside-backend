@@ -388,12 +388,57 @@ export const signalController = {
         responseCount = responses?.length || 0;
       }
 
-      // 獲取用戶回應他人的次數
-      const { data: myResponses } = await supabaseAdmin
+      // 獲取用戶回應他人的詳細資料（用於計算陪伴次數、幫助人數、平均回應時間）
+      const { data: myResponsesFull, error: myResponsesError } = await supabaseAdmin
         .from('signal_responses')
-        .select('id')
+        .select(`
+          id,
+          created_at,
+          lonely_signals!signal_responses_signal_id_fkey (
+            user_id,
+            created_at
+          )
+        `)
         .eq('responder_id', user.id);
-      const accompanyCount = myResponses?.length || 0;
+
+      if (myResponsesError) {
+        console.error('Error fetching my responses:', myResponsesError);
+      }
+
+      const accompanyCount = myResponsesFull?.length || 0;
+      
+      let peopleHelped = 0;
+      let avgResponseTime = 0;
+
+      if (myResponsesFull && myResponsesFull.length > 0) {
+        const uniqueHelpedUsers = new Set();
+        let totalTimeDiffMinutes = 0;
+        let validTimeCount = 0;
+
+        myResponsesFull.forEach((response: any) => {
+          const signal = response.lonely_signals;
+          if (signal) {
+            // 統計幫助過的人數（不重複）
+            if (signal.user_id) {
+              uniqueHelpedUsers.add(signal.user_id);
+            }
+            
+            // 計算回應時間
+            const responseTime = new Date(response.created_at).getTime();
+            const signalTime = new Date(signal.created_at).getTime();
+            const diffMinutes = (responseTime - signalTime) / (1000 * 60);
+            
+            if (diffMinutes >= 0) {
+              totalTimeDiffMinutes += diffMinutes;
+              validTimeCount++;
+            }
+          }
+        });
+
+        peopleHelped = uniqueHelpedUsers.size;
+        // 四捨五入到整數分鐘
+        avgResponseTime = validTimeCount > 0 ? Math.round(totalTimeDiffMinutes / validTimeCount) : 0;
+      }
 
       res.json({
         success: true,
@@ -402,6 +447,8 @@ export const signalController = {
           totalSignalsSent: signals?.length || 0,
           totalResponsesReceived: responseCount,
           totalAccompanied: accompanyCount,
+          peopleHelped,
+          avgResponseTime
         }
       });
 
