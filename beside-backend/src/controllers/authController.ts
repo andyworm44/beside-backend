@@ -10,7 +10,8 @@ export const authController = {
         body: req.body,
         headers: req.headers['content-type'],
       });
-      const { name, gender, birthday, phone } = req.body;
+      // 1. 這裡加入 email: requestEmail 的解構
+      const { name, gender, birthday, phone, email: requestEmail, password } = req.body;
 
       if (!name || !gender || !birthday) {
         return res.status(400).json({
@@ -19,26 +20,29 @@ export const authController = {
         });
       }
 
-      // 使用 Supabase Auth 註冊 (使用 email 而不是 phone)
-      // 生成一個有效的 email 格式
+      // 使用 Supabase Auth 註冊
       let email: string;
-      if (phone && phone.includes('@')) {
-        // 如果 phone 已經是 email 格式，直接使用
+      
+      // 2. 優先使用前端傳來的真實 Email
+      if (requestEmail) {
+        email = requestEmail;
+      } else if (phone && phone.includes('@')) {
+        // 如果 phone 已經是 email 格式
         email = phone;
       } else if (phone) {
         // 將電話號碼轉換為標準 email 格式
         email = `${phone.replace(/[^0-9]/g, '')}@beside.app`;
       } else {
-        // 使用 name + 時間戳生成唯一 email
+        // 使用 name + 時間戳生成唯一 email (最後手段)
         const timestamp = Date.now();
         email = `user_${timestamp}_${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@beside.app`;
       }
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email,
-        password: 'default_password', // 實際應用中需要更安全的處理
+        password: password || 'default_password', // 優先使用前端傳來的密碼
         options: {
-          emailRedirectTo: undefined, // 開發環境不需要 email 驗證
+          emailRedirectTo: undefined, 
           data: {
             name: name,
             phone: phone
@@ -66,10 +70,8 @@ export const authController = {
       let session = authData.session;
       if (!session && authData.user) {
         console.log('⚠️ No session from signup, attempting to sign in...');
-        console.log('⚠️ Email used:', email);
-        console.log('⚠️ User ID:', authData.user.id);
         
-        // 嘗試使用新的 supabase client 實例登入（確保是乾淨的狀態）
+        // 嘗試使用新的 supabase client 實例登入
         const { createClient } = await import('@supabase/supabase-js');
         const tempSupabase = createClient(
           process.env.SUPABASE_URL!,
@@ -78,24 +80,18 @@ export const authController = {
         
         const { data: signInData, error: signInError } = await tempSupabase.auth.signInWithPassword({
           email: email,
-          password: 'default_password'
+          password: password || 'default_password' // 使用正確的密碼登入
         });
         
         if (signInError) {
           console.error('❌ Sign in error:', signInError.message);
-          console.error('❌ Sign in error details:', JSON.stringify(signInError, null, 2));
         }
         if (!signInError && signInData?.session) {
           session = signInData.session;
-          console.log('✅ Session obtained from sign in:', signInData.session.access_token.substring(0, 20) + '...');
-        } else {
-          console.error('❌ Failed to get session from sign in');
-          console.error('❌ signInData:', signInData ? 'Got data but no session' : 'No data');
+          console.log('✅ Session obtained from sign in');
         }
       }
       
-      console.log('📋 Final session status:', session ? `✅ Present (${session.access_token.substring(0, 20)}...)` : '❌ Missing');
-
       console.log('✅ Auth user created:', authData.user.id);
 
       // 創建用戶資料 (使用 admin client 繞過 RLS)
@@ -113,13 +109,6 @@ export const authController = {
 
       if (userError) {
         console.error('❌ User insert error:', userError);
-        console.error('❌ Attempted to insert:', {
-          id: authData.user.id,
-          name,
-          gender,
-          birthday,
-          phone
-        });
         return res.status(400).json({
           success: false,
           error: userError.message
@@ -148,7 +137,6 @@ export const authController = {
   },
 
   // 登入
-    // 登入
   login: async (req: Request, res: Response) => {
     try {
       // 1. 同時解構讀取 email 和 phone
@@ -277,9 +265,6 @@ export const authController = {
   // 更新用戶資料
   updateProfile: async (req: Request, res: Response) => {
     try {
-      // console.log('📝 Update profile request:', req.body);
-      // console.log('📝 Auth header:', req.headers.authorization);
-      
       const token = req.headers.authorization?.replace('Bearer ', '');
       
       if (!token) {
@@ -298,11 +283,11 @@ export const authController = {
         });
       }
 
-      // 安全地解構 req.body，如果 req.body 是 undefined，給一個空物件預設值
+      // 安全地解構 req.body
       const body = req.body || {};
       const { name, gender, birthday } = body;
 
-      // 建構更新物件，只包含有提供的欄位
+      // 建構更新物件
       const updates: any = {
         updated_at: new Date().toISOString()
       };
@@ -337,7 +322,7 @@ export const authController = {
       res.status(500).json({
         success: false,
         error: 'Internal server error',
-        details: error.message // 暫時添加錯誤詳情以便調試
+        details: error.message
       });
     }
   }
