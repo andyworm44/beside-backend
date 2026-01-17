@@ -148,15 +148,29 @@ export const authController = {
   },
 
   // 登入
+    // 登入
   login: async (req: Request, res: Response) => {
     try {
-      const { phone, password } = req.body;
+      // 1. 同時解構讀取 email 和 phone
+      const { email: requestEmail, phone, password } = req.body;
 
-      // 將 phone 轉換為 email 格式
-      const email = phone ? `${phone}@beside.app` : phone;
+      let loginEmail = requestEmail;
+
+      // 2. 判斷要用哪個當作登入帳號
+      if (!loginEmail) {
+          if (phone) {
+              // 這是為了相容舊的手機登入邏輯
+              loginEmail = `${phone}@beside.app`;
+          } else {
+              return res.status(400).json({
+                  success: false,
+                  error: 'Missing email or phone'
+              });
+          }
+      }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password
       });
 
