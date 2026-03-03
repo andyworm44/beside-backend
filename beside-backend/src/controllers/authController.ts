@@ -10,39 +10,19 @@ export const authController = {
         body: req.body,
         headers: req.headers['content-type'],
       });
-      // 1. 這裡加入 email: requestEmail 的解構
-      const { name, gender, birthday, phone, email: requestEmail, password } = req.body;
+      const { name, gender, birthday, phone, email, password } = req.body;
 
-      if (!name || !gender || !birthday) {
+      if (!name || !gender || !birthday || !email || !password) {
         return res.status(400).json({
           success: false,
-          error: 'Missing required fields'
+          error: 'Missing required fields (name, gender, birthday, email, password)'
         });
       }
 
-      // 使用 Supabase Auth 註冊
-      let email: string;
-      
-      // 2. 優先使用前端傳來的真實 Email
-      if (requestEmail) {
-        email = requestEmail;
-      } else if (phone && phone.includes('@')) {
-        // 如果 phone 已經是 email 格式
-        email = phone;
-      } else if (phone) {
-        // 將電話號碼轉換為標準 email 格式
-        email = `${phone.replace(/[^0-9]/g, '')}@beside.app`;
-      } else {
-        // 使用 name + 時間戳生成唯一 email (最後手段)
-        const timestamp = Date.now();
-        email = `user_${timestamp}_${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@beside.app`;
-      }
-      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email,
-        password: password || 'default_password', // 優先使用前端傳來的密碼
+        password: password,
         options: {
-          emailRedirectTo: undefined, 
           data: {
             name: name,
             phone: phone
@@ -66,35 +46,23 @@ export const authController = {
         });
       }
 
-      // 如果註冊後沒有 session（可能因為 email 確認），嘗試自動登入獲取 session
       let session = authData.session;
       if (!session && authData.user) {
         console.log('⚠️ No session from signup, attempting to sign in...');
-        
-        // 嘗試使用新的 supabase client 實例登入
-        const { createClient } = await import('@supabase/supabase-js');
-        const tempSupabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_ANON_KEY!
-        );
-        
-        const { data: signInData, error: signInError } = await tempSupabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email,
-          password: password || 'default_password' // 使用正確的密碼登入
+          password: password
         });
-        
         if (signInError) {
           console.error('❌ Sign in error:', signInError.message);
-        }
-        if (!signInError && signInData?.session) {
+        } else if (signInData?.session) {
           session = signInData.session;
           console.log('✅ Session obtained from sign in');
         }
       }
-      
+
       console.log('✅ Auth user created:', authData.user.id);
 
-      // 創建用戶資料 (使用 admin client 繞過 RLS)
       const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
         .insert({
@@ -117,7 +85,6 @@ export const authController = {
 
       console.log('✅ User record created:', userData?.id);
 
-      // 返回用戶資料和 session
       res.status(201).json({
         success: true,
         data: {
@@ -139,26 +106,17 @@ export const authController = {
   // 登入
   login: async (req: Request, res: Response) => {
     try {
-      // 1. 同時解構讀取 email 和 phone
-      const { email: requestEmail, phone, password } = req.body;
+      const { email, password } = req.body;
 
-      let loginEmail = requestEmail;
-
-      // 2. 判斷要用哪個當作登入帳號
-      if (!loginEmail) {
-          if (phone) {
-              // 這是為了相容舊的手機登入邏輯
-              loginEmail = `${phone}@beside.app`;
-          } else {
-              return res.status(400).json({
-                  success: false,
-                  error: 'Missing email or phone'
-              });
-          }
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing email or password'
+        });
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
+        email: email,
         password
       });
 
@@ -169,10 +127,20 @@ export const authController = {
         });
       }
 
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (userError) {
+        console.error('User record not found for auth user:', data.user.id);
+      }
+
       res.json({
         success: true,
         data: {
-          user: data.user,
+          user: userData || data.user,
           session: data.session
         },
         message: 'Login successful'
@@ -217,7 +185,7 @@ export const authController = {
   getProfile: async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
-      
+
       if (!token) {
         return res.status(401).json({
           success: false,
@@ -234,7 +202,6 @@ export const authController = {
         });
       }
 
-      // 獲取用戶詳細資料
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -266,7 +233,7 @@ export const authController = {
   updateProfile: async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
-      
+
       if (!token) {
         return res.status(401).json({
           success: false,
@@ -283,20 +250,17 @@ export const authController = {
         });
       }
 
-      // 安全地解構 req.body
       const body = req.body || {};
       const { name, gender, birthday } = body;
 
-      // 建構更新物件
       const updates: any = {
         updated_at: new Date().toISOString()
       };
-      
+
       if (name !== undefined) updates.name = name;
       if (gender !== undefined) updates.gender = gender;
       if (birthday !== undefined) updates.birthday = birthday;
 
-      // 使用 admin client 繞過 RLS
       const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
         .update(updates)
